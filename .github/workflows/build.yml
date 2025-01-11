@@ -1,0 +1,78 @@
+name: Build
+permissions:
+    contents: write
+
+on:
+    push:
+    workflow_dispatch:
+
+jobs:
+    build:
+        runs-on: macos-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install and Setup Theos
+              uses: waruhachi/theos-action@v2.1.5
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  theos-src: 'roothide/theos'
+
+            - name: Build Package
+              shell: bash
+              run: |
+                  make clean package FINALPACKAGE=1
+                  make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless
+                  make clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=roothide
+
+            - name: Extract Variables from Control File
+              id: control
+              shell: bash
+              run: |
+                  echo "NAME=$(grep '^Name:' control | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+                  echo "VERSION=$(grep '^Version:' control | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+                  echo "PACKAGE=$(grep '^Package:' control | cut -d ' ' -f 2)" >> "$GITHUB_OUTPUT"
+
+            - name: Compute Hashes
+              id: hashes
+              shell: bash
+              run: |
+                  for FILE in packages/*.deb; do
+                      FILENAME=$(basename "$FILE")
+                      ARCH=$(echo "$FILENAME" | sed -E 's/.*_iphoneos-(arm|arm64|arm64e)\.deb/\1/')
+
+                      echo "MD5SUM_${ARCH}=$(md5 -q "$FILE")" >> "$GITHUB_OUTPUT"
+                      echo "SHA1_${ARCH}=$(shasum -a 1 "$FILE" | awk '{ print $1 }')" >> "$GITHUB_OUTPUT"
+                      echo "SHA256_${ARCH}=$(shasum -a 256 "$FILE" | awk '{ print $1 }')" >> "$GITHUB_OUTPUT"
+                  done
+
+            - name: Create GitHub Release
+              uses: softprops/action-gh-release@v2
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  tag_name: v${{ steps.control.outputs.VERSION }}
+                  name: Release v${{ steps.control.outputs.VERSION }}
+                  body: |
+                      iphoneos-arm:
+                        MD5sum: ${{ steps.hashes.outputs.MD5SUM_ARM }}
+                        SHA1: ${{ steps.hashes.outputs.SHA1_ARM }}
+                        SHA256: ${{ steps.hashes.outputs.SHA256_ARM }}
+
+                      iphoneos-arm64:
+                        MD5sum: ${{ steps.hashes.outputs.MD5SUM_ARM64 }}
+                        SHA1: ${{ steps.hashes.outputs.SHA1_ARM64 }}
+                        SHA256: ${{ steps.hashes.outputs.SHA256_ARM64 }}
+
+                      iphoneos-arm64e:
+                        MD5sum: ${{ steps.hashes.outputs.MD5SUM_ARM64E }}
+                        SHA1: ${{ steps.hashes.outputs.SHA1_ARM64E }}
+                        SHA256: ${{ steps.hashes.outputs.SHA256_ARM64E }}
+                  files: |
+                      ./packages/${{ steps.control.outputs.PACKAGE }}_${{ steps.control.outputs.VERSION }}_iphoneos-arm.deb
+                      ./packages/${{ steps.control.outputs.PACKAGE }}_${{ steps.control.outputs.VERSION }}_iphoneos-arm64.deb
+                      ./packages/${{ steps.control.outputs.PACKAGE }}_${{ steps.control.outputs.VERSION }}_iphoneos-arm64e.deb
+                  draft: false
+                  prerelease: false
+                  make_latest: true
