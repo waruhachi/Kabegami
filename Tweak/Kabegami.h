@@ -1,4 +1,3 @@
-#include <RemoteLog.h>
 #include <UIKit/UIKit.h>
 #include <CustomToast/CustomToast.h>
 #include <AudioToolbox/AudioToolbox.h>
