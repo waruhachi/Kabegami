@@ -5,5 +5,5 @@ Maintainer: waruhachi
 Author: waruhachi
 Section: Tweaks
 Architecture: iphoneos-arm
-Depends: mobilesubstrate, firmware (>= 16.0)
+Depends: mobilesubstrate
 Package: moe.waru.kabegami
