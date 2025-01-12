@@ -1,8 +1,15 @@
 #import <Kabegami.h>
 
 void SaveWallpaper(NSInteger type) {
-	AudioServicesPlaySystemSound(hapticSoundID);
+	if (!lockscreenWallpaperImage || !homescreenWallpaperImage) {
+		dispatch_async(dispatch_get_main_queue(), ^{
+			CustomToast *toast = [[CustomToast alloc] initWithTitle:@"Unable to Save Wallpaper" subtitle:@"Kabegami" icon:[UIImage systemImageNamed:@"exclamationmark.triangle"] iconColor:[UIColor redColor] autoHide:3.0];
+			[toast presentToast];
+		});
+		return;
+	}
 
+	AudioServicesPlaySystemSound(hapticSoundID);
 	if (type == 0) {
 		UIImageWriteToSavedPhotosAlbum(lockscreenWallpaperImage, nil, nil, nil);
 	} else if (type == 1) {
@@ -17,9 +24,7 @@ void SaveWallpaper(NSInteger type) {
 
 void SaveWallpaper16() {
 	SBWallpaperController *wallpaperController = [%c(SBWallpaperController) sharedInstance];
-	PBUIPosterWallpaperRemoteViewController *wallpaperRemoteController = [wallpaperController safeValueForKey:@"_rootWallpaperViewController"];
-	PBUIPosterWallpaperViewController *wallpaperViewController = [wallpaperRemoteController safeValueForKey:@"_viewController"];
-	UIView *wallpaperView = wallpaperViewController.view;
+	UIView *wallpaperView = [wallpaperController safeValueForKey:@"_wallpaperWindow"];
 
 	if (!wallpaperView) {
 		dispatch_async(dispatch_get_main_queue(), ^{
